@@ -11,23 +11,71 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: indexnow-notify
+  cancel-in-progress: false
 
 jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Submit updated public URLs
+      - name: Checkout status branch
+        uses: actions/checkout@v7
+        with:
+          ref: automation-status
+
+      - name: Submit URLs and record result
         shell: bash
         run: |
           response_file="${RUNNER_TEMP}/indexnow-response.txt"
-          status_code="$(curl --silent --show-error             --output "$response_file"             --write-out "%{http_code}"             --request POST             --header "Content-Type: application/json; charset=utf-8"             --data '{"host":"repair-counter.lush-bard-7806.chatgpt.site","key":"1e404a2898dbf2b4551f83dd68e2e18d","keyLocation":"https://repair-counter.lush-bard-7806.chatgpt.site/1e404a2898dbf2b4551f83dd68e2e18d.txt","urlList":["https://repair-counter.lush-bard-7806.chatgpt.site/","https://repair-counter.lush-bard-7806.chatgpt.site/genba-count-report","https://repair-counter.lush-bard-7806.chatgpt.site/service","https://repair-counter.lush-bard-7806.chatgpt.site/privacy"]}'             "https://api.indexnow.org/indexnow")"
+
+          set +e
+          status_code="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "Content-Type: application/json; charset=utf-8" \
+            --data '{"host":"repair-counter.lush-bard-7806.chatgpt.site","key":"1e404a2898dbf2b4551f83dd68e2e18d","keyLocation":"https://repair-counter.lush-bard-7806.chatgpt.site/1e404a2898dbf2b4551f83dd68e2e18d.txt","urlList":["https://repair-counter.lush-bard-7806.chatgpt.site/","https://repair-counter.lush-bard-7806.chatgpt.site/genba-count-report","https://repair-counter.lush-bard-7806.chatgpt.site/service","https://repair-counter.lush-bard-7806.chatgpt.site/privacy"]}' \
+            "https://api.indexnow.org/indexnow")"
+          curl_exit="$?"
+          set -e
+
+          accepted=false
+          if [[ "$curl_exit" == "0" && ( "$status_code" == "200" || "$status_code" == "202" ) ]]; then
+            accepted=true
+          fi
+
+          mkdir -p automation
+          jq -n \
+            --arg submitted_at_utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg source_commit "${GITHUB_SHA}" \
+            --arg http_status "$status_code" \
+            --argjson curl_exit "$curl_exit" \
+            --argjson accepted "$accepted" \
+            '{
+              submitted_at_utc: $submitted_at_utc,
+              source_commit: $source_commit,
+              endpoint: "https://api.indexnow.org/indexnow",
+              urls_submitted: 4,
+              http_status: $http_status,
+              curl_exit: $curl_exit,
+              accepted: $accepted,
+              note: "HTTP 200 or 202 means the submission was received; indexing is not guaranteed."
+            }' > automation/indexnow-last-run.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add automation/indexnow-last-run.json
+          git commit -m "chore: record IndexNow notification result"
+          git push origin HEAD:automation-status
 
           echo "IndexNow HTTP status: $status_code"
           if [[ -s "$response_file" ]]; then
             cat "$response_file"
           fi
 
-          if [[ "$status_code" != "200" && "$status_code" != "202" ]]; then
+          if [[ "$accepted" != "true" ]]; then
             exit 1
           fi
