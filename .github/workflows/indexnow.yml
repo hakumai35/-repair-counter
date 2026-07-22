@@ -1,0 +1,33 @@
+name: Notify IndexNow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "public/**"
+      - "worker/**"
+      - ".github/workflows/indexnow.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit updated public URLs
+        shell: bash
+        run: |
+          response_file="${RUNNER_TEMP}/indexnow-response.txt"
+          status_code="$(curl --silent --show-error             --output "$response_file"             --write-out "%{http_code}"             --request POST             --header "Content-Type: application/json; charset=utf-8"             --data '{"host":"repair-counter.lush-bard-7806.chatgpt.site","key":"1e404a2898dbf2b4551f83dd68e2e18d","keyLocation":"https://repair-counter.lush-bard-7806.chatgpt.site/1e404a2898dbf2b4551f83dd68e2e18d.txt","urlList":["https://repair-counter.lush-bard-7806.chatgpt.site/","https://repair-counter.lush-bard-7806.chatgpt.site/genba-count-report","https://repair-counter.lush-bard-7806.chatgpt.site/service","https://repair-counter.lush-bard-7806.chatgpt.site/privacy"]}'             "https://api.indexnow.org/indexnow")"
+
+          echo "IndexNow HTTP status: $status_code"
+          if [[ -s "$response_file" ]]; then
+            cat "$response_file"
+          fi
+
+          if [[ "$status_code" != "200" && "$status_code" != "202" ]]; then
+            exit 1
+          fi
