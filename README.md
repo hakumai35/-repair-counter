@@ -23,7 +23,7 @@
 
 ```bash
 npm ci
-GITHUB_PAGES=true GITHUB_REPOSITORY=hakumai35/repair-counter npm run build:pages
+GITHUB_PAGES=true GITHUB_REPOSITORY=hakumai35/-repair-counter npm run build:pages
 ```
 
 生成された静的サイトは `out/` に出力されます。
