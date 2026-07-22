@@ -1,0 +1,10 @@
+{
+  "submitted_at_utc": "2026-07-22T23:33:04Z",
+  "source_commit": "84e8194f10fe7dcd843105dfd7f3b5004486e7a6",
+  "endpoint": "https://api.indexnow.org/indexnow",
+  "urls_submitted": 4,
+  "http_status": "200",
+  "curl_exit": 0,
+  "accepted": true,
+  "note": "HTTP 200 or 202 means the submission was received; indexing is not guaranteed."
+}
